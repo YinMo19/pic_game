@@ -1,0 +1,20 @@
+[package]
+name = "pic_game"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+colored = "2.2.0"
+rand = "0.8.5"
+rocket = {version = "0.5.1",features = ["json"]}
+rocket_session = {version = "0.3.0",git= "https://git.ondrovo.com/YinMo19/rocket_session.git"}
+
+
+[dependencies.sqlx]
+version = "0.7"
+default-features = false
+features = ["macros", "migrate"]
+
+[dependencies.rocket_db_pools]
+version = "0.2.0"
+features = ["sqlx_sqlite"]
