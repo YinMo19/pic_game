@@ -5,6 +5,7 @@ use sqlx::{migrate::Migrator, sqlite::SqlitePoolOptions, Sqlite};
 use std::path::Path;
 
 use colored::*;
+use rocket_db_pools::Connection;
 
 const CORE_DB_URL: &str = "sqlite://database/core.db";
 
@@ -43,13 +44,43 @@ async fn create_database(database_name: &str) -> Result<(), Box<dyn Error>> {
 async fn check_database(database_name: &str) -> Result<(), Box<dyn Error>> {
     let m = Migrator::new(Path::new("./database/migrations")).await?;
     let pool = SqlitePoolOptions::new().connect(database_name).await?;
-    let _ = m.run(&pool).await;
-    println!(
-        "{} {} {}",
-        "Migrate".green().bold(),
-        database_name.blue(),
-        "successfully.".green().bold()
-    );
+    let res = m.run(&pool).await;
+    match res {
+        Ok(_) => println!(
+            "{} {} {}",
+            "Migrate".green().bold(),
+            database_name.blue(),
+            "successfully.".green().bold()
+        ),
+        Err(e) => println!(
+            "{} {}\n{}",
+            "Migrate".red().bold(),
+            database_name.blue(),
+            e.to_string().red().bold()
+        ),
+    };
+
+    Ok(())
+}
+
+pub async fn add_records(
+    mut core: Connection<crate::models::Core>,
+    time_used: u32,
+    correct_num: u32,
+    username: String,
+) -> Result<(), Box<dyn Error>> {
+    let query = r#"
+        INSERT INTO rank (user_name,used_time,correct_num)
+        VALUES (?, ?, ?)
+    "#;
+
+    let _result = sqlx::query(&query)
+        .bind(&username)
+        .bind(&time_used)
+        .bind(&correct_num)
+        .fetch_all(&mut **core)
+        .await
+        .expect("Failed to insert rank");
 
     Ok(())
 }

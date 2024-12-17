@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -20,8 +21,8 @@
         }
 
         #start-screen img {
-            width: 200px;
-            height: 200px;
+            width: 150px;
+            height: 150px;
             margin-bottom: 20px;
         }
 
@@ -32,16 +33,18 @@
         }
 
         #question-image img {
-            width: 200px;
-            height: 200px;
+            width: 150px;
+            height: 150px;
             margin: 10px;
-            cursor: pointer; /* 添加鼠标指针样式以提示可点击 */
+            cursor: pointer;
+            /* 添加鼠标指针样式以提示可点击 */
         }
 
         #options {
-            display: none; /* 默认隐藏选项 */
+            display: none;
+            /* 默认隐藏选项 */
             display: grid;
-            grid-template-columns: repeat(2, 200px);
+            grid-template-columns: repeat(2, 150px);
             gap: 10px;
             justify-content: center;
             margin-top: 20px;
@@ -51,7 +54,8 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            cursor: pointer; /* 添加鼠标指针样式以提示可点击 */
+            cursor: pointer;
+            /* 添加鼠标指针样式以提示可点击 */
         }
 
         .result-message {
@@ -73,8 +77,102 @@
             color: purple;
             margin-top: 10px;
         }
+
+        #username-screen input[type="text"] {
+            width: 80%;
+            max-width: 300px;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 16px;
+            color: #333;
+            background-color: #f9f9f9;
+        }
+
+        #username-screen button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        #username-screen button:hover {
+            background-color: #0056b3;
+        }
+
+        #leaderboard-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+            width: 100%; /* 确保父容器占满整个宽度 */
+        }
+        
+        #leaderboard-table {
+            width: 90%; /* 增加表格宽度 */
+            max-width: 800px; /* 设置最大宽度 */
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        #leaderboard-table th, #leaderboard-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        #leaderboard-table th {
+            background-color: #f2f2f2;
+        }
+        
+        #leaderboard-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        #leaderboard-table tr:hover {
+            background-color: #f1f1f1;
+        }
+        
+        #back-to-game-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        #back-to-game-button:hover {
+            background-color: #0056b3;
+        }
+        
+        #show-leaderboard-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #28a745;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        #show-leaderboard-button:hover {
+            background-color: #218838;
+        }
     </style>
 </head>
+
 <body>
     <h1>记住这张图！</h1>
     <h3>接下来每页将会出现上一次题图，你需要点击上一次的题图...
@@ -84,6 +182,11 @@
         <img id="start-image" alt="Start Image">
         <button id="start-button">开始</button>
     </div>
+    <div id="username-screen" style="display: none;">
+        <h2>请输入您的用户名</h2>
+        <input type="text" id="username-input" placeholder="Enter your username" required>
+        <button id="set-username-button">Set Username</button>
+    </div>
     <div id="question-image"></div>
     <div id="options"></div>
     <div id="result-message" class="result-message"></div>
@@ -91,20 +194,131 @@
     <div id="time-used" class="time-used"></div> <!-- 添加时间显示元素 -->
     <div id="correct-all" class="correct-all"></div> <!-- 添加正确答案显示元素 -->
 
+    <div id="leaderboard-screen" style="display: none;">
+        <h2>排行榜</h2>
+        <table id="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>用户名</th>
+                    <th>正确数量</th>
+                    <th>用时</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 排行榜条目将在这里动态插入 -->
+            </tbody>
+        </table>
+        <button id="back-to-game-button">返回游戏</button>
+    </div>
+
     <script>
+
+        document.getElementById('back-to-game-button').addEventListener('click', () => {
+            document.getElementById('leaderboard-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+        });
+
+        async function fetchLeaderboard() {
+            try {
+                const response = await fetch('/leaderboard');
+                const data = await response.json();
+
+                if (response.ok) {
+                    const leaderboardTableBody = document.getElementById('leaderboard-table').getElementsByTagName('tbody')[0];
+                    leaderboardTableBody.innerHTML = ''; // 清空现有内容
+
+                    data.forEach((entry, index) => {
+                        const row = leaderboardTableBody.insertRow();
+                        row.insertCell(0).textContent = index + 1; // 排名
+                        row.insertCell(1).textContent = entry.user_name; // 用户名
+                        row.insertCell(2).textContent = entry.correct_num; // 正确数量
+                        row.insertCell(3).textContent = `${entry.used_time / 1000} 秒`; // 用时
+                    });
+
+                    document.getElementById('start-screen').style.display = 'none';
+                    document.getElementById('leaderboard-screen').style.display = 'flex';
+                } else {
+                    const errorMessageDiv = document.getElementById('error-message');
+                    errorMessageDiv.textContent = 'Failed to fetch leaderboard';
+                }
+            } catch (error) {
+                const errorMessageDiv = document.getElementById('error-message');
+                errorMessageDiv.textContent = `Error fetching leaderboard: ${error.message}`;
+            }
+        }
+
+        // 添加一个按钮来触发排行榜的加载
+        document.getElementById('start-screen').insertAdjacentHTML('beforeend', '<button id="show-leaderboard-button">查看排行榜</button>');
+        document.getElementById('show-leaderboard-button').addEventListener('click', fetchLeaderboard);
+
+
+
         document.addEventListener('DOMContentLoaded', () => {
             fetchInitialQuestion();
         });
 
         document.getElementById('start-button').addEventListener('click', startGame);
+        document.getElementById('set-username-button').addEventListener('click', setUsername);
 
         let timeUsed = 0;
         let correctAll = false;
 
         async function fetchInitialQuestion() {
-            const response = await fetch('/question');
-            const data = await response.json();
-            document.getElementById('start-image').src = data.question_image_url;
+            try {
+                const response = await fetch('/question');
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('start-image').src = data.question_image_url;
+                } else if (data.error && data.error === 'need_username') {
+                    showUsernameInput();
+                } else {
+                    const errorMessageDiv = document.getElementById('error-message');
+                    errorMessageDiv.textContent = 'Failed to fetch initial question';
+                }
+            } catch (error) {
+                const errorMessageDiv = document.getElementById('error-message');
+                errorMessageDiv.textContent = `Error fetching initial question: ${error.message}`;
+            }
+        }
+
+        function showUsernameInput() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('username-screen').style.display = 'flex';
+            document.getElementById('username-screen').style.flexDirection = 'column';
+            document.getElementById('username-screen').style.alignItems = 'center';
+        }
+
+        async function setUsername() {
+            const usernameInput = document.getElementById('username-input');
+            const username = usernameInput.value.trim();
+
+            if (!username) {
+                alert('Please enter a username.');
+                return;
+            }
+
+            try {
+                const response = await fetch('/set_username', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(username)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(result.message);
+                    document.getElementById('username-screen').style.display = 'none';
+                    fetchInitialQuestion(); // 再次请求问题
+                } else {
+                    alert('Failed to set username');
+                }
+            } catch (error) {
+                alert(`Error setting username: ${error.message}`);
+            }
         }
 
         async function startGame() {
@@ -115,7 +329,7 @@
             fetchQuestion(true);
         }
 
-        async function fetchQuestion(begin_flag=false) {
+        async function fetchQuestion(begin_flag = false) {
             const response = await fetch('/question?begin_flag=' + begin_flag);
             const data = await response.json();
             document.getElementById('question-image').style.display = 'block';
@@ -172,10 +386,11 @@
             document.getElementById('question-image').style.display = 'none'; // 隐藏选项
             document.getElementById('result-message').textContent = ''; // 清除结果消息
             document.getElementById('error-message').textContent = ''; // 清除错误消息
-            document.getElementById('time-used').textContent = `Time used: ${timeUsed/1000} seconds`; // 显示使用时间
+            document.getElementById('time-used').textContent = `Time used: ${timeUsed / 1000} seconds`; // 显示使用时间
             document.getElementById('correct-all').textContent = `Correct answers: ${correctAll}`; // 显示正确答案信息
             fetchInitialQuestion(); // 获取初始问题
         }
     </script>
 </body>
+
 </html>

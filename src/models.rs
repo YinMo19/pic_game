@@ -1,4 +1,5 @@
 use rocket::serde::{Deserialize, Serialize};
+use rocket_db_pools::Database;
 use std::time::Instant;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -15,6 +16,7 @@ pub struct GameState {
     pub current_question: GameQuestion,
     pub current_time_used: Instant,
     pub current_correct: u64,
+    pub username: Option<String>,
 }
 
 impl Default for GameState {
@@ -28,6 +30,7 @@ impl Default for GameState {
             },
             current_time_used: Instant::now(),
             current_correct: 0,
+            username: None,
         }
     }
 }
@@ -36,4 +39,24 @@ impl Default for GameState {
 #[serde(crate = "rocket::serde")]
 pub struct AnswerData {
     pub answer: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(crate = "rocket::serde")]
+pub struct GameResult {
+    pub user_name: String,
+    pub time_used: u32,
+    pub correct_num: u32,
+}
+
+#[derive(Database)]
+#[database("Core")]
+pub struct Core(sqlx::SqlitePool);
+
+#[derive(sqlx::FromRow, Serialize)]
+#[serde(crate = "rocket::serde")]
+pub struct RankEntry {
+    user_name: String,
+    correct_num: i32,
+    used_time: i32,
 }

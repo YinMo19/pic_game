@@ -1,12 +1,14 @@
 use rand::{thread_rng, Rng};
+use rocket::http::Status;
+use rocket::response::status::Custom;
 use rocket::serde::json::{json, Json, Value};
 use rocket::State;
 use std::sync::Arc;
 use std::time::Instant;
 
 // use colored::*;
-
-use crate::models::{AnswerData, GameQuestion, GameState};
+use crate::database::add_records;
+use crate::models::{AnswerData, Core, GameQuestion, GameState, RankEntry};
 pub type Session<'a> = rocket_session::Session<'a, GameState>;
 
 fn get_random_index(length: usize) -> usize {
@@ -27,12 +29,13 @@ fn get_four_random_choice(length: usize) -> Vec<usize> {
     }
     choices
 }
+
 #[get("/question?<begin_flag>")]
 pub async fn get_question<'r>(
     image_paths: &State<Arc<Vec<String>>>,
     session: Session<'r>,
     begin_flag: bool,
-) -> Result<Json<GameQuestion>, String> {
+) -> Result<Json<GameQuestion>, Custom<Value>> {
     if begin_flag {
         session.tap(|game_state| {
             game_state.current_time_used = Instant::now();
@@ -40,9 +43,19 @@ pub async fn get_question<'r>(
     }
     let game_state = session.tap(|game_state| game_state.clone());
 
+    if game_state.username.is_none() {
+        return Err(Custom(
+            Status::Unauthorized,
+            json!({"error": "need_username"}),
+        ));
+    }
+
     let length = image_paths.len();
     if length < 5 {
-        return Err("Not enough images in the directory".to_string());
+        return Err(Custom(
+            Status::InternalServerError,
+            json!({"error": "Not enough images in the directory"}),
+        ));
     }
 
     let question_index = get_random_index(length);
@@ -50,7 +63,7 @@ pub async fn get_question<'r>(
     let previous_answer = &game_state.current_question.question_image_url;
 
     let mut choices = get_four_random_choice(length);
-    if !&game_state.previous_answer.is_none() {
+    if !game_state.previous_answer.is_none() {
         let previous_answer_index = image_paths
             .iter()
             .position(|x| x == previous_answer)
@@ -92,34 +105,99 @@ pub async fn get_question<'r>(
 pub async fn submit_answer(
     answer: Json<AnswerData>,
     session: Session<'_>,
-) -> Result<Value, String> {
+    core: rocket_db_pools::Connection<Core>,
+) -> Result<Json<Value>, Custom<Value>> {
     let game_state = session.tap(|gamestate| gamestate.clone());
 
+    if game_state.username.is_none() {
+        return Err(Custom(
+            Status::Unauthorized,
+            json!({"error": "need_username"}),
+        ));
+    }
+
     let answer_index = answer.0.answer;
-    let correct_answer = game_state
-        .previous_answer
-        .as_ref()
-        .ok_or_else(|| "Previous answer not found".to_string())?;
+    let correct_answer = game_state.previous_answer.as_ref().ok_or_else(|| {
+        Custom(
+            Status::InternalServerError,
+            json!({"error": "Previous answer not found"}),
+        )
+    })?;
 
     if game_state.current_question.options.get(answer_index) == Some(correct_answer) {
         session.tap(|gamestate| {
             gamestate.current_correct += 1;
         });
-        Ok(json!({"success": true}))
+        Ok(Json(json!({"success": true})))
     } else {
-        let (time_used, correct_all) = session.tap(|gamestate| {
+        let (time_used, correct_all, username) = session.tap(|gamestate| {
             gamestate.previous_answer = None;
             let current_correct = gamestate.current_correct;
             gamestate.current_correct = 0;
             (
                 gamestate.current_time_used.elapsed().as_millis(),
                 current_correct,
+                game_state.username,
             )
         });
-        Ok(json!({
+
+        let _result = add_records(
+            core,
+            time_used as u32,
+            correct_all as u32,
+            username.expect("no username set"),
+        )
+        .await;
+
+        Ok(Json(json!({
             "success": false,
             "time_used": time_used,
             "correct_all": correct_all
-        }))
+        })))
     }
+}
+
+#[post("/set_username", data = "<username>")]
+pub async fn set_username(
+    username: Json<String>,
+    session: Session<'_>,
+) -> Result<Json<Value>, Custom<Value>> {
+    let username = username.0;
+
+    if username.is_empty() {
+        return Err(Custom(
+            Status::BadRequest,
+            json!({"error": "Username cannot be empty"}),
+        ));
+    }
+
+    session.tap(|game_state| {
+        game_state.username = Some(username);
+    });
+
+    Ok(Json(json!({"message": "Username set successfully"})))
+}
+
+#[get("/leaderboard")]
+pub async fn get_leaderboard(
+    mut core: rocket_db_pools::Connection<Core>,
+) -> Result<Json<Vec<RankEntry>>, Custom<Value>> {
+    let query = r#"
+        SELECT r.user_name, r.correct_num, r.used_time
+        FROM rank r
+        JOIN (
+            SELECT user_name, MAX(correct_num) AS max_correct_num
+            FROM rank
+            GROUP BY user_name
+        ) max_r ON r.user_name = max_r.user_name AND r.correct_num = max_r.max_correct_num
+        ORDER BY r.correct_num DESC, r.used_time ASC
+        LIMIT 50;
+    "#;
+
+    let entries: Vec<RankEntry> = sqlx::query_as(&query)
+        .fetch_all(&mut **core)
+        .await
+        .map_err(|e| Custom(Status::InternalServerError, json!({"error": e.to_string()})))?;
+
+    Ok(Json(entries))
 }

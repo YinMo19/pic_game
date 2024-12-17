@@ -4,9 +4,11 @@ use rocket::fs::FileServer;
 use std::sync::Arc;
 
 mod routes;
-use routes::{get_question, submit_answer, Session};
+use rocket_db_pools::Database;
+use routes::{get_leaderboard, get_question, set_username, submit_answer, Session};
 
 mod models;
+use models::Core;
 // use models::GameStates;
 mod database;
 use database::init_check_database_all;
@@ -30,18 +32,17 @@ fn init_pic() -> Vec<String> {
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
     init_check_database_all().await;
-
     let image_paths = Arc::new(init_pic());
 
-    // let game_states = Arc::new(Mutex::new(GameStates::new()));
-
     let _rocket = rocket::build()
-        // .attach(database::MessageLog::init())
+        .attach(Core::init())
         .attach(Session::fairing())
         .manage(image_paths.clone())
-        // .manage(game_states.clone())
         .mount("/", FileServer::from("./static"))
-        .mount("/", routes![get_question, submit_answer])
+        .mount(
+            "/",
+            routes![get_question, submit_answer, set_username, get_leaderboard],
+        )
         .launch()
         .await?;
 

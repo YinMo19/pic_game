@@ -3,3 +3,5 @@
 /static/pic
 
 copy_pic.py
+
+database/core*
