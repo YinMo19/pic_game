@@ -67,14 +67,14 @@ jobs:
             cp "../target/${{ matrix.target }}/release/pic_game.exe" ./pic_game_release.exe
             cp -r "../static" ./
             cp "../Rocket.toml" ./
-            cp -r "../database/" ./
+            cp -r "../database" ./
             7z a "${{ matrix.archive-name }}" pic_game.exe pic_game_release.exe static Rocket.toml database
           else
             cp "../target/${{ matrix.target }}/debug/pic_game" ./
             cp "../target/${{ matrix.target }}/release/pic_game" ./pic_game_release
             cp -r "../static" ./
             cp "../Rocket.toml" ./
-            cp -r "../database/" ./
+            cp -r "../database" ./
             tar -czf "${{ matrix.archive-name }}" pic_game pic_game_release static Rocket.toml database
           fi
       - name: Upload archive
