@@ -26,10 +26,43 @@
             margin-bottom: 20px;
         }
 
+        /* 无限模式按钮样式 */
         #start-button {
             padding: 10px 20px;
             font-size: 16px;
             cursor: pointer;
+            background-color: #007BFF; /* 蓝色背景 */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        #start-button:hover {
+            background-color: #0056b3; /* 悬停时更深的蓝色 */
+            transform: scale(1.05); /* 稍微放大 */
+        }
+
+        /* 竞速模式按钮样式 */
+        #race-start-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #FF6347; /* 橙红色背景 */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        #race-start-button:hover {
+            background-color: #FF4500; /* 悬停时更深的橙红色 */
+            transform: scale(1.05); /* 稍微放大 */
+        }
+
+        /* 按钮之间的间距 */
+        #start-screen button {
+            margin: 10px;
         }
 
         #question-image img {
@@ -170,6 +203,71 @@
         #show-leaderboard-button:hover {
             background-color: #218838;
         }
+        
+        #show-race-leaderboard-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #28a5a7;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        #show-race-leaderboard-button:hover {
+            background-color: #1c7273;
+        }
+
+        #back-to-game-button-race {
+            padding: 10px 20px;
+            font-size: 16px;
+            color: white;
+            background-color: #007BFF;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 20px;
+        }
+        
+        #back-to-game-button-race:hover {
+            background-color: #003670;
+        }
+
+        #race-leaderboard-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+            width: 100%; /* 确保父容器占满整个宽度 */
+        }
+        
+        #race-leaderboard-table {
+            width: 90%; /* 增加表格宽度 */
+            max-width: 800px; /* 设置最大宽度 */
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        #race-leaderboard-table th, #race-leaderboard-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        
+        #race-leaderboard-table th {
+            background-color: #f2f2f2;
+        }
+        
+        #race-leaderboard-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        #race-leaderboard-table tr:hover {
+            background-color: #f1f1f1;
+        }
     </style>
 </head>
 
@@ -180,7 +278,8 @@
     </h3>
     <div id="start-screen">
         <img id="start-image" alt="Start Image">
-        <button id="start-button">开始</button>
+        <button id="start-button">无限模式</button>
+        <button id="race-start-button">竞速模式</button>
     </div>
     <div id="username-screen" style="display: none;">
         <h2>请输入您的用户名</h2>
@@ -195,7 +294,7 @@
     <div id="correct-all" class="correct-all"></div> <!-- 添加正确答案显示元素 -->
 
     <div id="leaderboard-screen" style="display: none;">
-        <h2>排行榜</h2>
+        <h2>无限模式排行榜</h2>
         <table id="leaderboard-table">
             <thead>
                 <tr>
@@ -210,6 +309,24 @@
             </tbody>
         </table>
         <button id="back-to-game-button">返回游戏</button>
+    </div>
+
+    <div id="race-leaderboard-screen" style="display: none;">
+        <h2>竞速模式排行榜</h2>
+        <table id="race-leaderboard-table">
+            <thead>
+                <tr>
+                    <th>排名</th>
+                    <th>用户名</th>
+                    <th>正确数量</th>
+                    <th>用时</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- 排行榜条目将在这里动态插入 -->
+            </tbody>
+        </table>
+        <button id="back-to-game-button-race">返回游戏</button>
     </div>
 
     <script>
@@ -249,8 +366,46 @@
         }
 
         // 添加一个按钮来触发排行榜的加载
-        document.getElementById('start-screen').insertAdjacentHTML('beforeend', '<button id="show-leaderboard-button">查看排行榜</button>');
+        document.getElementById('start-screen').insertAdjacentHTML('beforeend', '<button id="show-leaderboard-button">查看无限模式排行榜</button>');
         document.getElementById('show-leaderboard-button').addEventListener('click', fetchLeaderboard);
+
+
+        document.getElementById('back-to-game-button-race').addEventListener('click', () => {
+            document.getElementById('race-leaderboard-screen').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+        });
+        async function fetchRaceLeaderboard() {
+            try {
+                const response = await fetch('/race-leaderboard');
+                const data = await response.json();
+        
+                if (response.ok) {
+                    const leaderboardTableBody = document.getElementById('race-leaderboard-table').getElementsByTagName('tbody')[0];
+                    leaderboardTableBody.innerHTML = ''; // 清空现有内容
+        
+                    data.forEach((entry, index) => {
+                        const row = leaderboardTableBody.insertRow();
+                        row.insertCell(0).textContent = index + 1; // 排名
+                        row.insertCell(1).textContent = entry.user_name; // 用户名
+                        row.insertCell(2).textContent = entry.correct_num; // 正确数量
+                        row.insertCell(3).textContent = `${entry.used_time / 1000} 秒`; // 用时
+                    });
+        
+                    document.getElementById('start-screen').style.display = 'none';
+                    document.getElementById('race-leaderboard-screen').style.display = 'flex';
+                } else {
+                    const errorMessageDiv = document.getElementById('error-message');
+                    errorMessageDiv.textContent = 'Failed to fetch race leaderboard';
+                }
+            } catch (error) {
+                const errorMessageDiv = document.getElementById('error-message');
+                errorMessageDiv.textContent = `Error fetching race leaderboard: ${error.message}`;
+            }
+        }
+        
+        // 添加一个按钮来触发竞速排行榜的加载
+        document.getElementById('start-screen').insertAdjacentHTML('beforeend', '<button id="show-race-leaderboard-button">查看竞速模式排行榜</button>');
+        document.getElementById('show-race-leaderboard-button').addEventListener('click', fetchRaceLeaderboard);
 
 
 
@@ -270,6 +425,7 @@
                 const data = await response.json();
 
                 if (response.ok) {
+                    document.getElementById('start-screen').style.display = 'flex';
                     document.getElementById('start-image').src = data.question_image_url;
                 } else if (data.error && data.error === 'need_username') {
                     showUsernameInput();
@@ -385,6 +541,66 @@
             document.getElementById('options').style.display = 'none'; // 隐藏选项
             document.getElementById('question-image').style.display = 'none'; // 隐藏选项
             document.getElementById('result-message').textContent = ''; // 清除结果消息
+            document.getElementById('error-message').textContent = ''; // 清除错误消息
+            document.getElementById('time-used').textContent = `Time used: ${timeUsed / 1000} seconds`; // 显示使用时间
+            document.getElementById('correct-all').textContent = `Correct answers: ${correctAll}`; // 显示正确答案信息
+            fetchInitialQuestion(); // 获取初始问题
+        }
+
+        document.getElementById('race-start-button').addEventListener('click', () => startRace());
+
+        let isRaceMode = false;
+        function startRace() {
+            isRaceMode = true;
+            startGame();
+        }
+
+        async function sendAnswer(answerIndex) {
+            try {
+                const response = await fetch('/answer?is_race=true', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ answer: answerIndex })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const resultMessageDiv = document.getElementById('result-message');
+                    const errorMessageDiv = document.getElementById('error-message');
+                    errorMessageDiv.textContent = ''; // 清除之前的错误消息
+
+                    if (result.success) {
+                        resultMessageDiv.textContent = 'Correct!';
+                        if (isRaceMode && result.upto) {
+                            timeUsed = result.time_used; // 存储使用时间
+                            correctAll = result.correct_all; // 存储正确答案信息
+                            endRace();
+                        } else {
+                            fetchQuestion(); // 重新获取问题
+                        }
+                    } else {
+                        resultMessageDiv.textContent = 'Incorrect!';
+                        timeUsed = result.time_used; // 存储使用时间
+                        correctAll = result.correct_all; // 存储正确答案信息
+                        restartGame(); // 重启游戏
+                    }
+                } else {
+                    const errorMessageDiv = document.getElementById('error-message');
+                    errorMessageDiv.textContent = 'Failed to send answer';
+                }
+            } catch (error) {
+                const errorMessageDiv = document.getElementById('error-message');
+                errorMessageDiv.textContent = `Error sending answer: ${error.message}`;
+            }
+        }
+
+        function endRace() {
+            document.getElementById('start-screen').style.display = 'flex'; // 显示开始屏幕
+            document.getElementById('options').style.display = 'none'; // 隐藏选项
+            document.getElementById('question-image').style.display = 'none'; // 隐藏选项
+            document.getElementById('result-message').textContent = 'You have completed the race!'; // 显示结果消息
             document.getElementById('error-message').textContent = ''; // 清除错误消息
             document.getElementById('time-used').textContent = `Time used: ${timeUsed / 1000} seconds`; // 显示使用时间
             document.getElementById('correct-all').textContent = `Correct answers: ${correctAll}`; // 显示正确答案信息

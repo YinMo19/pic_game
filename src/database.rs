@@ -68,7 +68,7 @@ pub async fn add_records(
     time_used: u32,
     correct_num: u32,
     username: String,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<(), sqlx::Error> {
     let query = r#"
         INSERT INTO rank (user_name,used_time,correct_num)
         VALUES (?, ?, ?)
@@ -79,8 +79,29 @@ pub async fn add_records(
         .bind(&time_used)
         .bind(&correct_num)
         .fetch_all(&mut **core)
-        .await
-        .expect("Failed to insert rank");
+        .await?;
+
+    Ok(())
+}
+
+
+pub async fn add_race_records(
+    mut core: Connection<crate::models::Core>,
+    time_used: u32,
+    correct_num: u32,
+    username: String,
+) -> Result<(), sqlx::Error> {
+    let query = r#"
+        INSERT INTO race_rank (user_name,used_time,correct_num)
+        VALUES (?, ?, ?)
+    "#;
+
+    let _result = sqlx::query(&query)
+        .bind(&username)
+        .bind(&time_used)
+        .bind(&correct_num)
+        .fetch_all(&mut **core)
+        .await?;
 
     Ok(())
 }

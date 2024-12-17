@@ -5,7 +5,9 @@ use std::sync::Arc;
 
 mod routes;
 use rocket_db_pools::Database;
-use routes::{get_leaderboard, get_question, set_username, submit_answer, Session};
+use routes::{
+    get_leaderboard, get_question, get_race_leaderboard, set_username, submit_answer, Session,
+};
 
 mod models;
 use models::Core;
@@ -41,7 +43,13 @@ async fn main() -> Result<(), rocket::Error> {
         .mount("/", FileServer::from("./static"))
         .mount(
             "/",
-            routes![get_question, submit_answer, set_username, get_leaderboard],
+            routes![
+                get_question,
+                submit_answer,
+                set_username,
+                get_leaderboard,
+                get_race_leaderboard
+            ],
         )
         .launch()
         .await?;

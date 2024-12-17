@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 // use colored::*;
-use crate::database::add_records;
+use crate::database::{add_race_records, add_records};
 use crate::models::{AnswerData, Core, GameQuestion, GameState, RankEntry};
 pub type Session<'a> = rocket_session::Session<'a, GameState>;
 
@@ -68,6 +68,8 @@ pub async fn get_question<'r>(
             .iter()
             .position(|x| x == previous_answer)
             .unwrap();
+
+        choices[get_random_index(4)] = question_index;
         if !choices.contains(&previous_answer_index) {
             choices[get_random_index(4)] = previous_answer_index;
         }
@@ -101,9 +103,10 @@ pub async fn get_question<'r>(
     Ok(Json(question))
 }
 
-#[post("/answer", data = "<answer>")]
+#[post("/answer?<is_race>", data = "<answer>")]
 pub async fn submit_answer(
     answer: Json<AnswerData>,
+    is_race: bool,
     session: Session<'_>,
     core: rocket_db_pools::Connection<Core>,
 ) -> Result<Json<Value>, Custom<Value>> {
@@ -125,9 +128,37 @@ pub async fn submit_answer(
     })?;
 
     if game_state.current_question.options.get(answer_index) == Some(correct_answer) {
-        session.tap(|gamestate| {
+        if session.tap(|gamestate| {
             gamestate.current_correct += 1;
-        });
+            is_race && gamestate.current_correct == 30
+        }) {
+            let (time_used, correct_all, username) = session.tap(|gamestate| {
+                gamestate.previous_answer = None;
+                let current_correct = gamestate.current_correct;
+                gamestate.current_correct = 0;
+                (
+                    gamestate.current_time_used.elapsed().as_millis(),
+                    current_correct,
+                    game_state.username,
+                )
+            });
+
+            let _result = add_race_records(
+                core,
+                time_used as u32,
+                correct_all as u32,
+                username.expect("no username set"),
+            )
+            .await
+            .expect("Fail to add record to database.");
+
+            return Ok(Json(json!({
+                "success": true,
+                "upto": true,
+                "time_used": time_used,
+                "correct_all": correct_all
+            })));
+        };
         Ok(Json(json!({"success": true})))
     } else {
         let (time_used, correct_all, username) = session.tap(|gamestate| {
@@ -141,13 +172,16 @@ pub async fn submit_answer(
             )
         });
 
-        let _result = add_records(
-            core,
-            time_used as u32,
-            correct_all as u32,
-            username.expect("no username set"),
-        )
-        .await;
+        if !is_race {
+            let _result = add_records(
+                core,
+                time_used as u32,
+                correct_all as u32,
+                username.expect("no username set"),
+            )
+            .await
+            .expect("Fail to add record to database.");
+        };
 
         Ok(Json(json!({
             "success": false,
@@ -191,7 +225,31 @@ pub async fn get_leaderboard(
             GROUP BY user_name
         ) max_r ON r.user_name = max_r.user_name AND r.correct_num = max_r.max_correct_num
         ORDER BY r.correct_num DESC, r.used_time ASC
-        LIMIT 50;
+        LIMIT 100;
+    "#;
+
+    let entries: Vec<RankEntry> = sqlx::query_as(&query)
+        .fetch_all(&mut **core)
+        .await
+        .map_err(|e| Custom(Status::InternalServerError, json!({"error": e.to_string()})))?;
+
+    Ok(Json(entries))
+}
+
+#[get("/race-leaderboard")]
+pub async fn get_race_leaderboard(
+    mut core: rocket_db_pools::Connection<Core>,
+) -> Result<Json<Vec<RankEntry>>, Custom<Value>> {
+    let query = r#"
+        SELECT user_name, correct_num, used_time
+        FROM race_rank
+        WHERE (user_name, used_time) IN (
+            SELECT user_name, MIN(used_time)
+            FROM race_rank
+            GROUP BY user_name
+        )
+        ORDER BY used_time ASC
+        LIMIT 100;
     "#;
 
     let entries: Vec<RankEntry> = sqlx::query_as(&query)
