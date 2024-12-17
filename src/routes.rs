@@ -39,6 +39,7 @@ pub async fn get_question<'r>(
     if begin_flag {
         session.tap(|game_state| {
             game_state.current_time_used = Instant::now();
+            game_state.current_correct = 0;
         });
     }
     let game_state = session.tap(|game_state| game_state.clone());
