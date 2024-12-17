@@ -18,9 +18,16 @@ use database::init_check_database_all;
 use std::fs;
 use std::path::Path;
 
+use colored::*;
+
 fn init_pic() -> Vec<String> {
     let pic_dir = Path::new("./static/pic");
-    let entries = fs::read_dir(pic_dir).expect("Failed to read directory");
+    let entries = fs::read_dir(pic_dir).expect(&format!(
+        "{} {} {}",
+        "Directory".red().bold(),
+        "./static/pic".green().bold(),
+        "NOT FOUND!".red().bold()
+    ));
 
     // collect all image paths
     entries
