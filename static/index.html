@@ -413,7 +413,7 @@
             fetchInitialQuestion();
         });
 
-        document.getElementById('start-button').addEventListener('click', startGame);
+        document.getElementById('start-button').addEventListener('click', startInfinity);
         document.getElementById('set-username-button').addEventListener('click', setUsername);
 
         let timeUsed = 0;
@@ -503,7 +503,7 @@
 
         async function sendAnswer(answerIndex) {
             try {
-                const response = await fetch('/answer', {
+                const response = await fetch('/answer?' + new URLSearchParams({ is_race: isRaceMode }), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -554,46 +554,10 @@
             isRaceMode = true;
             startGame();
         }
-
-        async function sendAnswer(answerIndex) {
-            try {
-                const response = await fetch('/answer?is_race=true', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ answer: answerIndex })
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    const resultMessageDiv = document.getElementById('result-message');
-                    const errorMessageDiv = document.getElementById('error-message');
-                    errorMessageDiv.textContent = ''; // 清除之前的错误消息
-
-                    if (result.success) {
-                        resultMessageDiv.textContent = 'Correct!';
-                        if (isRaceMode && result.upto) {
-                            timeUsed = result.time_used; // 存储使用时间
-                            correctAll = result.correct_all; // 存储正确答案信息
-                            endRace();
-                        } else {
-                            fetchQuestion(); // 重新获取问题
-                        }
-                    } else {
-                        resultMessageDiv.textContent = 'Incorrect!';
-                        timeUsed = result.time_used; // 存储使用时间
-                        correctAll = result.correct_all; // 存储正确答案信息
-                        restartGame(); // 重启游戏
-                    }
-                } else {
-                    const errorMessageDiv = document.getElementById('error-message');
-                    errorMessageDiv.textContent = 'Failed to send answer';
-                }
-            } catch (error) {
-                const errorMessageDiv = document.getElementById('error-message');
-                errorMessageDiv.textContent = `Error sending answer: ${error.message}`;
-            }
+        function startInfinity() {
+            // 状态重置
+            isRaceMode = false;
+            startGame();
         }
 
         function endRace() {
