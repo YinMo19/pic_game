@@ -4,3 +4,5 @@
 copy_pic.py
 
 database/core*
+
+**.DS_Store
